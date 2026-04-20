@@ -1,0 +1,7 @@
+streamlit
+pandas
+mplsoccer
+matplotlib
+highlight-text
+numpy
+adjustText
