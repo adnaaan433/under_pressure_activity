@@ -51,7 +51,7 @@ def load_player_season_stats(competition_id, season_id):
     return pd.DataFrame()
 
 @st.cache_data(show_spinner=False)
-def load_team_events_from_api(competition_id, season_id, team_name, _progress_bar=None, _status_text=None):
+def load_team_events_from_api(competition_id, season_id, team_name):
     df_matches = load_matches(competition_id, season_id)
     if df_matches is None or df_matches.empty:
         return pd.DataFrame()
@@ -112,17 +112,13 @@ def load_team_events_from_api(competition_id, season_id, team_name, _progress_ba
                 events_list.append(df_ep)
                 
             completed += 1
-            if _progress_bar is not None:
-                _progress_bar.progress(completed / total)
-            if _status_text is not None:
-                _status_text.text(f"Downloading events: {completed}/{total} matches completed...")
                 
     if events_list:
         return pd.concat(events_list, ignore_index=True)
     return pd.DataFrame()
 
 @st.cache_data(show_spinner=False)
-def load_competition_events_from_api(competition_id, season_id, _progress_bar=None, _status_text=None):
+def load_competition_events_from_api(competition_id, season_id):
     df_matches = load_matches(competition_id, season_id)
     if df_matches is None or df_matches.empty:
         return pd.DataFrame()
@@ -175,10 +171,6 @@ def load_competition_events_from_api(competition_id, season_id, _progress_bar=No
                 events_list.append(df_ep)
                 
             completed += 1
-            if _progress_bar is not None:
-                _progress_bar.progress(completed / total)
-            if _status_text is not None:
-                _status_text.text(f"Downloading events: {completed}/{total} matches completed...")
                 
     if events_list:
         return pd.concat(events_list, ignore_index=True)
