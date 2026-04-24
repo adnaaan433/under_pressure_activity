@@ -83,7 +83,10 @@ if df_comps is not None and not df_comps.empty:
                 
                 if st.button("Load Team Events"):
                     with st.spinner(f"Fetching complete match events for {selected_team}..."):
-                        team_events = load_team_events_from_api(comp_id, season_id, selected_team)
+                        status_text = st.empty()
+                        progress_bar = st.progress(0)
+                        
+                        team_events = load_team_events_from_api(comp_id, season_id, selected_team, progress_bar=progress_bar, status_text=status_text)
                         
                         if team_events is not None and not team_events.empty:
                             with st.spinner("Fetching mapping for player known names..."):
@@ -97,6 +100,9 @@ if df_comps is not None and not df_comps.empty:
                                     team_events['player_known_name'] = team_events['player_known_name'].fillna(team_events['player_name'])
                                 else:
                                     team_events['player_known_name'] = team_events['player_name']
+                        
+                        status_text.empty()
+                        progress_bar.empty()
                         
                         if team_events is not None and not team_events.empty:
                             st.session_state['viz3_team_events'] = team_events
@@ -145,7 +151,10 @@ if df_comps is not None and not df_comps.empty:
             
             if st.button("Load Data"):
                 with st.spinner(f"Fetching complete match events for all teams in {scatter_comp}..."):
-                    comp_events = load_competition_events_from_api(comp_id, season_id)
+                    status_text = st.empty()
+                    progress_bar = st.progress(0)
+                    
+                    comp_events = load_competition_events_from_api(comp_id, season_id, progress_bar=progress_bar, status_text=status_text)
                     
                     if comp_events is not None and not comp_events.empty:
                         with st.spinner("Fetching mapping & calculating aggregate statistics..."):
@@ -161,6 +170,9 @@ if df_comps is not None and not df_comps.empty:
                                 st.error("Failed to calculate player statistics.")
                     else:
                         st.error("No valid under-pressure events found for this competition.")
+                    
+                    status_text.empty()
+                    progress_bar.empty()
                     
         if 'scatter_aggregated_stats' in st.session_state:
             st.write("### Player Statistics Dataframe")

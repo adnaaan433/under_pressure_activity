@@ -51,52 +51,45 @@ def load_player_season_stats(competition_id, season_id):
     return pd.DataFrame()
 
 @st.cache_data(show_spinner=False)
-def load_team_events_from_api(competition_id, season_id, team_name):
+def fetch_filtered_team_event(match_id, team_name):
+    api = get_api()
+    try:
+        res = api.event(match_id)
+        if res is not None:
+            df = res[0]
+            if 'team_name' in df.columns:
+                df = df[df['team_name'] == team_name]
+            if 'under_pressure' in df.columns:
+                df = df[df['under_pressure'] == True]
+                df = df[df['sub_type_name'] != 'Aerial Lost']
+                df = df[df['type_name'].isin(['Carry', 'Pass', 'Dribble', 'Foul Won', 'Dispossessed', 'Miscontrol', 'Shield', 'Error'])]
+                if 'type_name' in df.columns:
+                    is_carry = df['type_name'] == 'Carry'
+                    valid_carry = is_carry & (((df['x'] - df['end_x'])**2 + (df['y'] - df['end_y'])**2) > 25)
+                    df = df[~is_carry | valid_carry]
+            else:
+                return None
+            target_cols = ['type_name', 'sub_type_name', 'outcome_name', 'player_name', 'team_name', 'under_pressure', 'x', 'y', 'end_x', 'end_y', 'match_id', 'id', 'index']
+            existing_cols = [c for c in target_cols if c in df.columns]
+            return df[existing_cols]
+    except Exception:
+        pass
+    return None
+
+def load_team_events_from_api(competition_id, season_id, team_name, progress_bar=None, status_text=None):
     df_matches = load_matches(competition_id, season_id)
     if df_matches is None or df_matches.empty:
         return pd.DataFrame()
         
-    # Filter matches involving the team
     team_matches = df_matches[(df_matches['home_team_name'] == team_name) | (df_matches['away_team_name'] == team_name)]
     if team_matches.empty:
         return pd.DataFrame()
         
-    api = get_api()
     if 'match_status' in team_matches.columns:
         match_ids = team_matches[team_matches['match_status'] == 'available']['match_id'].tolist()
     else:
         match_ids = team_matches['match_id'].tolist()
         
-    def fetch_event(match_id):
-        try:
-            res = api.event(match_id)
-            if res is not None:
-                df = res[0]
-                
-                # Filter to ONLY the specified team's events
-                if 'team_name' in df.columns:
-                    df = df[df['team_name'] == team_name]
-                
-                # Filter rows where under_pressure == True
-                if 'under_pressure' in df.columns:
-                    df = df[df['under_pressure'] == True]
-                    df = df[df['sub_type_name'] != 'Aerial Lost']
-                    df = df[df['type_name'].isin(['Carry', 'Pass', 'Dribble', 'Foul Won', 'Dispossessed', 'Miscontrol', 'Shield', 'Error'])]
-                    # Only keep Carries that travelled more than 5 units
-                    is_carry = df['type_name'] == 'Carry'
-                    valid_carry = is_carry & (((df['x'] - df['end_x'])**2 + (df['y'] - df['end_y'])**2) > 25)
-                    df = df[~is_carry | valid_carry]
-                else:
-                    return None
-                
-                # Filter columns to only those requested
-                target_cols = ['type_name', 'sub_type_name', 'outcome_name', 'player_name', 'team_name', 'under_pressure', 'x', 'y', 'end_x', 'end_y', 'match_id', 'id', 'index']
-                existing_cols = [c for c in target_cols if c in df.columns]
-                
-                return df[existing_cols]
-        except Exception as e:
-            return None
-
     events_list = []
     total = len(match_ids)
     
@@ -105,57 +98,56 @@ def load_team_events_from_api(competition_id, season_id, team_name):
         
     completed = 0
     with concurrent.futures.ThreadPoolExecutor(max_workers=50) as executor:
-        futures = [executor.submit(fetch_event, mid) for mid in match_ids]
+        futures = [executor.submit(fetch_filtered_team_event, mid, team_name) for mid in match_ids]
         for future in concurrent.futures.as_completed(futures):
             df_ep = future.result()
             if df_ep is not None and not df_ep.empty:
                 events_list.append(df_ep)
                 
             completed += 1
+            if progress_bar is not None:
+                progress_bar.progress(completed / total)
+            if status_text is not None:
+                status_text.text(f"Downloading events: {completed}/{total} matches completed...")
                 
     if events_list:
         return pd.concat(events_list, ignore_index=True)
     return pd.DataFrame()
 
 @st.cache_data(show_spinner=False)
-def load_competition_events_from_api(competition_id, season_id):
+def fetch_filtered_comp_event(match_id):
+    api = get_api()
+    try:
+        res = api.event(match_id)
+        if res is not None:
+            df = res[0]
+            if 'under_pressure' in df.columns:
+                df = df[df['under_pressure'] == True]
+                df = df[df['sub_type_name'] != 'Aerial Lost']
+                df = df[df['type_name'].isin(['Carry', 'Pass', 'Dribble', 'Foul Won', 'Dispossessed', 'Miscontrol', 'Shield', 'Error'])]
+                if 'type_name' in df.columns:
+                    is_carry = df['type_name'] == 'Carry'
+                    valid_carry = is_carry & (((df['x'] - df['end_x'])**2 + (df['y'] - df['end_y'])**2) > 25)
+                    df = df[~is_carry | valid_carry]
+            else:
+                return None
+            target_cols = ['type_name', 'sub_type_name', 'outcome_name', 'player_name', 'team_name', 'under_pressure', 'x', 'y', 'end_x', 'end_y', 'match_id', 'id', 'index']
+            existing_cols = [c for c in target_cols if c in df.columns]
+            return df[existing_cols]
+    except Exception:
+        pass
+    return None
+
+def load_competition_events_from_api(competition_id, season_id, progress_bar=None, status_text=None):
     df_matches = load_matches(competition_id, season_id)
     if df_matches is None or df_matches.empty:
         return pd.DataFrame()
         
-    api = get_api()
     if 'match_status' in df_matches.columns:
         match_ids = df_matches[df_matches['match_status'] == 'available']['match_id'].tolist()
     else:
         match_ids = df_matches['match_id'].tolist()
         
-    def fetch_event(match_id):
-        try:
-            res = api.event(match_id)
-            if res is not None:
-                df = res[0]
-                
-                # Filter rows where under_pressure == True
-                if 'under_pressure' in df.columns:
-                    df = df[df['under_pressure'] == True]
-                    df = df[df['sub_type_name'] != 'Aerial Lost']
-                    df = df[df['type_name'].isin(['Carry', 'Pass', 'Dribble', 'Foul Won', 'Dispossessed', 'Miscontrol', 'Shield', 'Error'])]
-                    # Only keep Carries that travelled more than 5 units
-                    if 'type_name' in df.columns:
-                        is_carry = df['type_name'] == 'Carry'
-                        valid_carry = is_carry & (((df['x'] - df['end_x'])**2 + (df['y'] - df['end_y'])**2) > 25)
-                        df = df[~is_carry | valid_carry]
-                else:
-                    return None
-                
-                # Filter columns to only those requested
-                target_cols = ['type_name', 'sub_type_name', 'outcome_name', 'player_name', 'team_name', 'under_pressure', 'x', 'y', 'end_x', 'end_y', 'match_id', 'id', 'index']
-                existing_cols = [c for c in target_cols if c in df.columns]
-                
-                return df[existing_cols]
-        except Exception as e:
-            return None
-
     events_list = []
     total = len(match_ids)
     
@@ -164,13 +156,17 @@ def load_competition_events_from_api(competition_id, season_id):
         
     completed = 0
     with concurrent.futures.ThreadPoolExecutor(max_workers=50) as executor:
-        futures = [executor.submit(fetch_event, mid) for mid in match_ids]
+        futures = [executor.submit(fetch_filtered_comp_event, mid) for mid in match_ids]
         for future in concurrent.futures.as_completed(futures):
             df_ep = future.result()
             if df_ep is not None and not df_ep.empty:
                 events_list.append(df_ep)
                 
             completed += 1
+            if progress_bar is not None:
+                progress_bar.progress(completed / total)
+            if status_text is not None:
+                status_text.text(f"Downloading events: {completed}/{total} matches completed...")
                 
     if events_list:
         return pd.concat(events_list, ignore_index=True)
