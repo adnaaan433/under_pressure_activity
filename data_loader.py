@@ -230,6 +230,8 @@ def calculate_player_stats(events_df, player_stats_df=None):
             # stats['total_actions_p90'] = (stats['total_actions'] / mins) * 90
             stats['successful_passes_p90'] = (stats['successful_passes'] / mins) * 90
             stats['unsuccessful_passes_p90'] = (stats['unsuccessful_passes'] / mins) * 90
+            stats['pass_accuracy'] = (stats['successful_passes'] / (stats['successful_passes'] + stats['unsuccessful_passes'])) * 100
+            stats['pass_accuracy'] = stats['pass_accuracy'].round(2)
             stats['carries_p90'] = (stats['carries'] / mins) * 90
             stats['dribble_won_p90'] = (stats['dribble_won'] / mins) * 90
             stats['dribble_lost_p90'] = (stats['dribble_lost'] / mins) * 90
@@ -243,6 +245,8 @@ def calculate_player_stats(events_df, player_stats_df=None):
             stats['escape_pressure_p90'] = stats['carries_p90'] + stats['dribble_won_p90'] + stats['foul_won_p90']
             stats['under_pressure_success_rate'] = (stats['successful_passes_p90'] + stats['carries_p90'] + stats['dribble_won_p90'] + stats['shield_p90'] + stats['foul_won_p90'])/(stats['total_pass_attempts_p90'] +stats['carries_p90'] + stats['dribble_won_p90'] + stats['dribble_lost_p90'] + stats['dispossessed_p90'] + stats['miscontrol_p90'] + stats['error_p90'])*100
             stats['under_pressure_success_rate'] = stats['under_pressure_success_rate'].round(2)
+            stats['under_pressure_losing_rate'] = (stats['dribble_lost_p90'] + stats['dispossessed_p90'] + stats['miscontrol_p90'] + stats['error_p90'])/(stats['total_pass_attempts_p90'] +stats['carries_p90'] + stats['dribble_won_p90'] + stats['dribble_lost_p90'] + stats['dispossessed_p90'] + stats['miscontrol_p90'] + stats['error_p90'])*100
+            stats['under_pressure_losing_rate'] = stats['under_pressure_losing_rate'].round(2)
     else:
         stats['player_known_name'] = stats['player_name']
         

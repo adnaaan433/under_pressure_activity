@@ -343,6 +343,113 @@ if df_comps is not None and not df_comps.empty:
                 st.pyplot(fig)
             else:
                 st.info("Not enough data to plot the scatter visualization.")
+
+            st.write("### Player accuracy vs losing")
+            
+            label_all2 = st.checkbox("Label all players (uncheck to label outer points only)", value=False, key="label_all2")
+            
+            label_single_team2 = st.checkbox("Label single team", value=False, key="label_single_team2")
+            selected_label_team2 = None
+            if label_single_team2 and 'team_name' in df_stats.columns:
+                team_names_list2 = sorted(df_stats['team_name'].dropna().unique().tolist())
+                selected_label_team2 = st.selectbox("Select team to label", team_names_list2, key='scatter_label_team2')
+            
+            fig2, ax2 = plt.subplots(figsize=(16, 9))
+            
+            # Filter NaNs for plotting to avoid matplotlib errors
+            plot_df2 = df_stats.dropna(subset=['pass_accuracy', 'under_pressure_losing_rate'])
+            
+            if not plot_df2.empty:
+                sc2 = ax2.scatter(plot_df2['pass_accuracy'], 
+                                plot_df2['under_pressure_losing_rate'], 
+                                color='#1f77b4', alpha=0.8, edgecolors='w', s=60)
+                
+                x_median2 = plot_df2['pass_accuracy'].median()
+                y_median2 = plot_df2['under_pressure_losing_rate'].median()
+                ax2.axvline(x=x_median2, color='gray', linestyle='--', alpha=1, zorder=0)
+                ax2.axhline(y=y_median2, color='gray', linestyle='--', alpha=1, zorder=0)
+                
+                # Annotate each point with the player's shortened name using adjustText
+                texts2 = []
+
+                # Pre-compute normalised distances from median intersection for font sizing
+                x_std2 = plot_df2['pass_accuracy'].std() or 1
+                y_std2 = plot_df2['under_pressure_losing_rate'].std() or 1
+                distances2 = np.sqrt(
+                    ((plot_df2['pass_accuracy'] - x_median2) / x_std2) ** 2 +
+                    ((plot_df2['under_pressure_losing_rate'] - y_median2) / y_std2) ** 2
+                )
+                dist_min2, dist_max2 = distances2.min(), distances2.max()
+
+                if not label_all2 and not label_single_team2:
+                    # Determine boundaries for outer points
+                    q_x_high2 = plot_df2['pass_accuracy'].quantile(0.85)
+                    q_x_low2 = plot_df2['pass_accuracy'].quantile(0.15)
+                    q_y_high2 = plot_df2['under_pressure_losing_rate'].quantile(0.85)
+                    q_y_low2 = plot_df2['under_pressure_losing_rate'].quantile(0.15)
+
+                for idx, row in plot_df2.iterrows():
+                    # When "Label single team" is active, only annotate players from the selected team
+                    if label_single_team2 and selected_label_team2:
+                        if row.get('team_name') != selected_label_team2:
+                            continue
+                    elif not label_all2:
+                        x_val = row['pass_accuracy']
+                        y_val = row['under_pressure_losing_rate']
+                        is_outer = (x_val >= q_x_high2 or x_val <= q_x_low2 or 
+                                    y_val >= q_y_high2 or y_val <= q_y_low2)
+                        if not is_outer:
+                            continue
+
+                    name = str(row['player_known_name'])
+                    parts = name.split()
+                    if len(parts) > 1:
+                        short_name = f"{parts[0][0]}. {' '.join(parts[1:])}"
+                    else:
+                        short_name = name
+
+                    # Scale font size linearly with distance from median intersection
+                    d = distances2.loc[idx]
+                    if dist_max2 > dist_min2:
+                        norm_d = (d - dist_min2) / (dist_max2 - dist_min2)
+                    else:
+                        norm_d = 0.0
+                    font_size = font_min + norm_d * (font_max - font_min)
+
+                    texts2.append(ax2.text(row['pass_accuracy'], row['under_pressure_losing_rate'], 
+                                         short_name, fontsize=font_size, alpha=0.9))
+                
+                if texts2:
+                    adjust_text(texts2, 
+                                force_points=0.8,
+                                force_text=1.0, 
+                                expand_points=(1.3, 1.3), 
+                                expand_text=(1.2, 1.2),
+                                max_move=4.0,
+                                lim=500,
+                                only_move={'points': 'xy', 'text': 'xy'},
+                                arrowprops=dict(arrowstyle='-', color='gray', lw=0.5, alpha=0.6))
+
+                xlabel2 = ax2.set_xlabel('Pass Accuracy (%)', fontsize=15)
+                ylabel2 = ax2.set_ylabel('Under Pressure Losing Rate (%)', fontsize=15)
+                xlabel2.set_path_effects(faux_bold)
+                ylabel2.set_path_effects(faux_bold)
+                
+                # Make the plot background look good
+                ax2.grid(True, linestyle='--', alpha=0.33)
+                ax2.spines['top'].set_visible(False)
+                ax2.spines['right'].set_visible(False)
+                ax2.spines['left'].set_visible(False)
+                ax2.spines['bottom'].set_visible(False)
+
+                ax2.invert_yaxis()
+
+                fig2.text(0.45, 1, 'Player accuracy vs losing', ha='center', va='center', fontproperties=fm.FontProperties(fname=boldonse_path, size=20))
+                fig2.text(0.45, 0.95, f'{scatter_comp} {positions_label}s with {selected_mins}+ minutes played in {scatter_season} season | Data: Statsbomb | made by: @adnaaan433', ha='center', va='center', fontsize=15)
+                
+                st.pyplot(fig2)
+            else:
+                st.info("Not enough data to plot the second scatter visualization.")
             
             if orig_font: plt.rcParams['font.family'] = orig_font
 
