@@ -447,7 +447,7 @@ if df_comps is not None and not df_comps.empty:
 
                 ax2.invert_yaxis()
 
-                fig2.text(0.45, 1, f'{scatter_comp} {positions_label}s - Efficiency Under Pressure', ha='center', va='center', fontproperties=fm.FontProperties(fname=boldonse_path, size=20))
+                fig2.text(0.45, 1, f'Efficiency Under Pressure', ha='center', va='center', fontproperties=fm.FontProperties(fname=boldonse_path, size=20))
                 fig2.text(0.45, 0.95, f'{scatter_comp} {positions_label}s with {selected_mins}+ minutes played in {scatter_season} season | Data: Statsbomb | made by: @adnaaan433', ha='center', va='center', fontsize=15)
                 
                 st.pyplot(fig2)
