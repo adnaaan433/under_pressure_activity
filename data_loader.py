@@ -193,27 +193,6 @@ def calculate_player_stats(events_df, player_stats_df=None):
     events['is_dispossessed'] = events['type_name'] == 'Dispossessed'
     events['is_miscontrol'] = events['type_name'] == 'Miscontrol'
     events['is_error'] = events['type_name'] == 'Error'
-    
-    # events['is_sustain'] = (
-    #     ((events['type_name'] == 'Dribble') & (events['outcome_name'] == 'Complete')) |
-    #     (events['type_name'] == 'Foul Won') |
-    #     (events['type_name'] == 'Shield')
-    # )
-    
-    # events['is_loss'] = (
-    #     (events['type_name'] == 'Dispossessed') |
-    #     (events['type_name'] == 'Miscontrol') |
-    #     ((events['type_name'] == 'Dribble') & (events['outcome_name'] == 'Incomplete')) |
-    #     (events['type_name'] == 'Error')
-    # )
-
-    # v_x = events['end_y'] - events['y']
-    # v_y = events['end_x'] - events['x']
-    # events['angle'] = np.degrees(np.arctan2(v_y, v_x))
-    
-    # events['is_forward'] = (events['angle'] >= 5) & (events['angle'] <= 175)
-    # events['fwd_successful_pass'] = events['is_successful_pass'] & events['is_forward']
-    # events['fwd_carry'] = events['is_carry'] & events['is_forward']
 
     stats = events.groupby('player_name').agg(
         successful_passes=('is_successful_pass', 'sum'),
@@ -228,22 +207,6 @@ def calculate_player_stats(events_df, player_stats_df=None):
         error=('is_error', 'sum'),
         team_name=('team_name', 'first')
     ).reset_index()
-    
-    # pri calculation
-    # stats['total_passes'] = stats['successful_passes'] + stats['unsuccessful_passes']
-    # stats['total_actions'] = stats['total_passes'] + stats['carries'] + stats['sustains'] + stats['poss_lost']
-    
-    # stats['fwd_actions'] = stats['fwd_successful_passes'] + stats['fwd_carries']
-    # stats['total_successful_actions'] = stats['successful_passes'] + stats['carries'] + stats['sustains']
-
-    # stats['retention'] = np.where(stats['total_actions'] > 0, 
-    #                              ((stats['total_actions'] - stats['poss_lost']) / stats['total_actions']) * 100, 0)
-    # stats['distribution'] = np.where(stats['total_passes'] > 0, 
-    #                                 (stats['successful_passes'] / stats['total_passes']) * 100, 0)
-    # stats['progression'] = np.where(stats['total_successful_actions'] > 0, 
-    #                                np.minimum((stats['fwd_actions'] / stats['total_successful_actions']) * 200, 100), 0)
-    
-    # stats['pri'] = (0.40 * stats['retention']) + (0.30 * stats['distribution']) + (0.30 * stats['progression'])
 
     
 
