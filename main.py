@@ -55,6 +55,10 @@ if df_comps is not None and not df_comps.empty:
     if page == "Pitch Visualization":
         st.title("🎯 Team Events Pitch Visualization")
         
+        # Reset font to default just in case it was changed globally
+        import matplotlib.pyplot as plt
+        plt.rcParams['font.family'] = 'sans-serif'
+        
         # Select single comp/season
         col1, col2 = st.columns(2)
         with col1:
