@@ -224,8 +224,11 @@ if df_comps is not None and not df_comps.empty:
             
             import matplotlib.font_manager as fm
             import matplotlib.patheffects as patheffects
-            boldonse_path = r"d:\Statsbomb\Analysis\under_pressure_activity\Boldonse-Regular.ttf"
-            notosans_path = r"d:\Statsbomb\Analysis\under_pressure_activity\NotoSans_Condensed-Regular.ttf"
+            import os
+            
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            boldonse_path = os.path.join(current_dir, "Boldonse-Regular.ttf")
+            notosans_path = os.path.join(current_dir, "NotoSans_Condensed-Regular.ttf")
             boldonse_prop = fm.FontProperties(fname=boldonse_path)
             notosans_prop = fm.FontProperties(fname=notosans_path)
             try:
