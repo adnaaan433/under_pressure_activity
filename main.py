@@ -430,8 +430,8 @@ if df_comps is not None and not df_comps.empty:
                                 only_move={'points': 'xy', 'text': 'xy'},
                                 arrowprops=dict(arrowstyle='-', color='gray', lw=0.5, alpha=0.6))
 
-                xlabel2 = ax2.set_xlabel('Pass Accuracy (%)', fontsize=15)
-                ylabel2 = ax2.set_ylabel('Under Pressure Losing Rate (%)', fontsize=15)
+                xlabel2 = ax2.set_xlabel('Pass Accuracy Under Pressure (%)', fontsize=15)
+                ylabel2 = ax2.set_ylabel('Possession Losing Rate Under Pressure (%)', fontsize=15)
                 xlabel2.set_path_effects(faux_bold)
                 ylabel2.set_path_effects(faux_bold)
                 
@@ -444,7 +444,7 @@ if df_comps is not None and not df_comps.empty:
 
                 ax2.invert_yaxis()
 
-                fig2.text(0.45, 1, 'Player accuracy vs losing', ha='center', va='center', fontproperties=fm.FontProperties(fname=boldonse_path, size=20))
+                fig2.text(0.45, 1, f'{scatter_comp} {positions_label}s - Efficiency Under Pressure', ha='center', va='center', fontproperties=fm.FontProperties(fname=boldonse_path, size=20))
                 fig2.text(0.45, 0.95, f'{scatter_comp} {positions_label}s with {selected_mins}+ minutes played in {scatter_season} season | Data: Statsbomb | made by: @adnaaan433', ha='center', va='center', fontsize=15)
                 
                 st.pyplot(fig2)
