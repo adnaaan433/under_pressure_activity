@@ -205,6 +205,9 @@ if df_comps is not None and not df_comps.empty:
                 else:
                     df_stats = df_stats.iloc[0:0]
             
+            # Save a base copy for chart 2 (Player accuracy vs losing)
+            df_stats_base = df_stats.copy()
+
             # Minutes filter (slider with step=100)
             if 'player_season_minutes' in df_stats.columns:
                 max_mins = int(df_stats['player_season_minutes'].max()) if not df_stats['player_season_minutes'].empty and not pd.isna(df_stats['player_season_minutes'].max()) else 3000
@@ -353,18 +356,27 @@ if df_comps is not None and not df_comps.empty:
 
             st.write("### Player accuracy vs losing")
             
+            selected_events = 0
+            if 'total_events_under_pressure' in df_stats_base.columns:
+                max_events = int(df_stats_base['total_events_under_pressure'].max()) if not df_stats_base['total_events_under_pressure'].empty and not pd.isna(df_stats_base['total_events_under_pressure'].max()) else 500
+                min_events = 0
+                selected_events = st.slider("Minimum Total Events Under Pressure", min_value=min_events, max_value=max_events, value=min(50, max_events), step=10)
+                df_stats_second = df_stats_base[df_stats_base['total_events_under_pressure'] >= selected_events]
+            else:
+                df_stats_second = df_stats_base.copy()
+            
             label_all2 = st.checkbox("Label all players (uncheck to label outer points only)", value=False, key="label_all2")
             
             label_single_team2 = st.checkbox("Label single team", value=False, key="label_single_team2")
             selected_label_team2 = None
-            if label_single_team2 and 'team_name' in df_stats.columns:
-                team_names_list2 = sorted(df_stats['team_name'].dropna().unique().tolist())
+            if label_single_team2 and 'team_name' in df_stats_second.columns:
+                team_names_list2 = sorted(df_stats_second['team_name'].dropna().unique().tolist())
                 selected_label_team2 = st.selectbox("Select team to label", team_names_list2, key='scatter_label_team2')
             
             fig2, ax2 = plt.subplots(figsize=(16, 9))
             
             # Filter NaNs for plotting to avoid matplotlib errors
-            plot_df2 = df_stats.dropna(subset=['pass_accuracy', 'under_pressure_losing_rate'])
+            plot_df2 = df_stats_second.dropna(subset=['pass_accuracy', 'under_pressure_losing_rate'])
             
             if not plot_df2.empty:
                 sc2 = ax2.scatter(plot_df2['pass_accuracy'], 
@@ -452,7 +464,11 @@ if df_comps is not None and not df_comps.empty:
                 ax2.invert_yaxis()
 
                 fig2.text(0.45, 1, f'Efficiency Under Pressure', ha='center', va='center', fontproperties=fm.FontProperties(fname=boldonse_path, size=20))
-                fig2.text(0.45, 0.95, f'{scatter_comp} {positions_label}s with {selected_mins}+ minutes played in {scatter_season} season | Data: Statsbomb | made by: @adnaaan433', ha='center', va='center', fontsize=15)
+                pos_label = '/'.join(selected_groups) if 'selected_groups' in locals() else 'Player'
+                if 'total_events_under_pressure' in df_stats_base.columns:
+                    fig2.text(0.45, 0.95, f'{scatter_comp} {pos_label}s with {selected_events}+ events under pressure in {scatter_season} season | Data: Statsbomb | made by: @adnaaan433', ha='center', va='center', fontsize=15)
+                else:
+                    fig2.text(0.45, 0.95, f'{scatter_comp} {pos_label}s in {scatter_season} season | Data: Statsbomb | made by: @adnaaan433', ha='center', va='center', fontsize=15)
                 
                 st.pyplot(fig2)
             else:
