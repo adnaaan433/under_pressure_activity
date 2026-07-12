@@ -87,10 +87,7 @@ if df_comps is not None and not df_comps.empty:
                 
                 if st.button("Load Team Events"):
                     with st.spinner(f"Fetching complete match events for {selected_team}..."):
-                        status_text = st.empty()
-                        progress_bar = st.progress(0)
-                        
-                        team_events = load_team_events_from_api(comp_id, season_id, selected_team, progress_bar=progress_bar, status_text=status_text)
+                        team_events = load_team_events_from_api(comp_id, season_id, selected_team)
                         
                         if team_events is not None and not team_events.empty:
                             with st.spinner("Fetching mapping for player known names..."):
@@ -104,9 +101,6 @@ if df_comps is not None and not df_comps.empty:
                                     team_events['player_known_name'] = team_events['player_known_name'].fillna(team_events['player_name'])
                                 else:
                                     team_events['player_known_name'] = team_events['player_name']
-                        
-                        status_text.empty()
-                        progress_bar.empty()
                         
                         if team_events is not None and not team_events.empty:
                             st.session_state['viz3_team_events'] = team_events
@@ -155,10 +149,7 @@ if df_comps is not None and not df_comps.empty:
             
             if st.button("Load Data"):
                 with st.spinner(f"Fetching complete match events for all teams in {scatter_comp}..."):
-                    status_text = st.empty()
-                    progress_bar = st.progress(0)
-                    
-                    comp_events = load_competition_events_from_api(comp_id, season_id, progress_bar=progress_bar, status_text=status_text)
+                    comp_events = load_competition_events_from_api(comp_id, season_id)
                     
                     if comp_events is not None and not comp_events.empty:
                         with st.spinner("Fetching mapping & calculating aggregate statistics..."):
@@ -174,9 +165,6 @@ if df_comps is not None and not df_comps.empty:
                                 st.error("Failed to calculate player statistics.")
                     else:
                         st.error("No valid under-pressure events found for this competition.")
-                    
-                    status_text.empty()
-                    progress_bar.empty()
                     
         if 'scatter_aggregated_stats' in st.session_state:
             st.write("### Player Statistics Dataframe")
@@ -375,15 +363,19 @@ if df_comps is not None and not df_comps.empty:
             
             fig2, ax2 = plt.subplots(figsize=(16, 9))
             
-            # Filter NaNs for plotting to avoid matplotlib errors
-            plot_df2 = df_stats_second.dropna(subset=['pass_accuracy', 'under_pressure_losing_rate'])
+            if 'forward_pass_accuracy' not in df_stats_second.columns:
+                st.warning("⚠️ The calculated statistics are outdated. Please click the **'Load Data'** button above to recalculate them with the new forward passing accuracy metric.")
+                plot_df2 = pd.DataFrame()
+            else:
+                # Filter NaNs for plotting to avoid matplotlib errors
+                plot_df2 = df_stats_second.dropna(subset=['forward_pass_accuracy', 'under_pressure_losing_rate'])
             
             if not plot_df2.empty:
-                sc2 = ax2.scatter(plot_df2['pass_accuracy'], 
+                sc2 = ax2.scatter(plot_df2['forward_pass_accuracy'], 
                                 plot_df2['under_pressure_losing_rate'], 
                                 color='#1f77b4', alpha=0.8, edgecolors='w', s=60)
                 
-                x_median2 = plot_df2['pass_accuracy'].median()
+                x_median2 = plot_df2['forward_pass_accuracy'].median()
                 y_median2 = plot_df2['under_pressure_losing_rate'].median()
                 ax2.axvline(x=x_median2, color='gray', linestyle='--', alpha=1, zorder=0)
                 ax2.axhline(y=y_median2, color='gray', linestyle='--', alpha=1, zorder=0)
@@ -392,18 +384,18 @@ if df_comps is not None and not df_comps.empty:
                 texts2 = []
 
                 # Pre-compute normalised distances from median intersection for font sizing
-                x_std2 = plot_df2['pass_accuracy'].std() or 1
+                x_std2 = plot_df2['forward_pass_accuracy'].std() or 1
                 y_std2 = plot_df2['under_pressure_losing_rate'].std() or 1
                 distances2 = np.sqrt(
-                    ((plot_df2['pass_accuracy'] - x_median2) / x_std2) ** 2 +
+                    ((plot_df2['forward_pass_accuracy'] - x_median2) / x_std2) ** 2 +
                     ((plot_df2['under_pressure_losing_rate'] - y_median2) / y_std2) ** 2
                 )
                 dist_min2, dist_max2 = distances2.min(), distances2.max()
 
                 if not label_all2 and not label_single_team2:
                     # Determine boundaries for outer points
-                    q_x_high2 = plot_df2['pass_accuracy'].quantile(0.85)
-                    q_x_low2 = plot_df2['pass_accuracy'].quantile(0.15)
+                    q_x_high2 = plot_df2['forward_pass_accuracy'].quantile(0.85)
+                    q_x_low2 = plot_df2['forward_pass_accuracy'].quantile(0.15)
                     q_y_high2 = plot_df2['under_pressure_losing_rate'].quantile(0.85)
                     q_y_low2 = plot_df2['under_pressure_losing_rate'].quantile(0.15)
 
@@ -413,7 +405,7 @@ if df_comps is not None and not df_comps.empty:
                         if row.get('team_name') != selected_label_team2:
                             continue
                     elif not label_all2:
-                        x_val = row['pass_accuracy']
+                        x_val = row['forward_pass_accuracy']
                         y_val = row['under_pressure_losing_rate']
                         is_outer = (x_val >= q_x_high2 or x_val <= q_x_low2 or 
                                     y_val >= q_y_high2 or y_val <= q_y_low2)
@@ -435,7 +427,7 @@ if df_comps is not None and not df_comps.empty:
                         norm_d = 0.0
                     font_size = font_min + norm_d * (font_max - font_min)
 
-                    texts2.append(ax2.text(row['pass_accuracy'], row['under_pressure_losing_rate'], 
+                    texts2.append(ax2.text(row['forward_pass_accuracy'], row['under_pressure_losing_rate'], 
                                          short_name, fontsize=font_size, alpha=0.9))
                 
                 if texts2:
@@ -449,7 +441,7 @@ if df_comps is not None and not df_comps.empty:
                                 only_move={'points': 'xy', 'text': 'xy'},
                                 arrowprops=dict(arrowstyle='-', color='gray', lw=0.5, alpha=0.6))
 
-                xlabel2 = ax2.set_xlabel('Pass Accuracy Under Pressure (%)', fontsize=15)
+                xlabel2 = ax2.set_xlabel('Forward Pass Accuracy Under Pressure (%)', fontsize=15)
                 ylabel2 = ax2.set_ylabel('Possession Losing Rate Under Pressure (%)', fontsize=15)
                 xlabel2.set_path_effects(faux_bold)
                 ylabel2.set_path_effects(faux_bold)

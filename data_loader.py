@@ -50,9 +50,7 @@ def load_player_season_stats(competition_id, season_id):
         
     return pd.DataFrame()
 
-@st.cache_data(show_spinner=False)
-def fetch_filtered_team_event(match_id, team_name):
-    api = get_api()
+def fetch_filtered_team_event(api, match_id, team_name):
     try:
         res = api.event(match_id)
         if res is not None:
@@ -76,7 +74,9 @@ def fetch_filtered_team_event(match_id, team_name):
         pass
     return None
 
-def load_team_events_from_api(competition_id, season_id, team_name, progress_bar=None, status_text=None):
+@st.cache_data(show_spinner="Fetching complete match events...")
+def load_team_events_from_api(competition_id, season_id, team_name):
+    api = get_api()
     df_matches = load_matches(competition_id, season_id)
     if df_matches is None or df_matches.empty:
         return pd.DataFrame()
@@ -96,27 +96,18 @@ def load_team_events_from_api(competition_id, season_id, team_name, progress_bar
     if total == 0:
         return pd.DataFrame()
         
-    completed = 0
-    with concurrent.futures.ThreadPoolExecutor(max_workers=50) as executor:
-        futures = [executor.submit(fetch_filtered_team_event, mid, team_name) for mid in match_ids]
+    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+        futures = [executor.submit(fetch_filtered_team_event, api, mid, team_name) for mid in match_ids]
         for future in concurrent.futures.as_completed(futures):
             df_ep = future.result()
             if df_ep is not None and not df_ep.empty:
                 events_list.append(df_ep)
                 
-            completed += 1
-            if progress_bar is not None:
-                progress_bar.progress(completed / total)
-            if status_text is not None:
-                status_text.text(f"Downloading events: {completed}/{total} matches completed...")
-                
     if events_list:
         return pd.concat(events_list, ignore_index=True)
     return pd.DataFrame()
 
-@st.cache_data(show_spinner=False)
-def fetch_filtered_comp_event(match_id):
-    api = get_api()
+def fetch_filtered_comp_event(api, match_id):
     try:
         res = api.event(match_id)
         if res is not None:
@@ -138,7 +129,9 @@ def fetch_filtered_comp_event(match_id):
         pass
     return None
 
-def load_competition_events_from_api(competition_id, season_id, progress_bar=None, status_text=None):
+@st.cache_data(show_spinner="Fetching complete competition events...")
+def load_competition_events_from_api(competition_id, season_id):
+    api = get_api()
     df_matches = load_matches(competition_id, season_id)
     if df_matches is None or df_matches.empty:
         return pd.DataFrame()
@@ -154,19 +147,12 @@ def load_competition_events_from_api(competition_id, season_id, progress_bar=Non
     if total == 0:
         return pd.DataFrame()
         
-    completed = 0
-    with concurrent.futures.ThreadPoolExecutor(max_workers=50) as executor:
-        futures = [executor.submit(fetch_filtered_comp_event, mid) for mid in match_ids]
+    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+        futures = [executor.submit(fetch_filtered_comp_event, api, mid) for mid in match_ids]
         for future in concurrent.futures.as_completed(futures):
             df_ep = future.result()
             if df_ep is not None and not df_ep.empty:
                 events_list.append(df_ep)
-                
-            completed += 1
-            if progress_bar is not None:
-                progress_bar.progress(completed / total)
-            if status_text is not None:
-                status_text.text(f"Downloading events: {completed}/{total} matches completed...")
                 
     if events_list:
         return pd.concat(events_list, ignore_index=True)
@@ -185,6 +171,15 @@ def calculate_player_stats(events_df, player_stats_df=None):
     events['is_successful_pass'] = events['is_pass'] & events['outcome_name'].isna()
     events['is_unsuccessful_pass'] = events['is_pass'] & (events['outcome_name'] == 'Incomplete')
     
+    pass_mask = events['is_pass']
+    v_x = events.loc[pass_mask, 'end_y'] - events.loc[pass_mask, 'y']
+    v_y = events.loc[pass_mask, 'end_x'] - events.loc[pass_mask, 'x']
+    events.loc[pass_mask, 'angle'] = np.degrees(np.arctan2(v_y, v_x))
+    
+    events['is_forward_pass'] = events['is_pass'] & (events['angle'] >= 5) & (events['angle'] <= 175)
+    events['is_successful_forward_pass'] = events['is_forward_pass'] & events['is_successful_pass']
+    events['is_unsuccessful_forward_pass'] = events['is_forward_pass'] & events['is_unsuccessful_pass']
+
     events['is_carry'] = events['type_name'] == 'Carry'
     events['is_dribble_won'] = (events['type_name'] == 'Dribble') & (events['outcome_name'] == 'Complete')
     events['is_dribble_lost'] = (events['type_name'] == 'Dribble') & (events['outcome_name'] == 'Incomplete')
@@ -197,6 +192,8 @@ def calculate_player_stats(events_df, player_stats_df=None):
     stats = events.groupby('player_name').agg(
         successful_passes=('is_successful_pass', 'sum'),
         unsuccessful_passes=('is_unsuccessful_pass', 'sum'),
+        successful_forward_passes=('is_successful_forward_pass', 'sum'),
+        unsuccessful_forward_passes=('is_unsuccessful_forward_pass', 'sum'),
         carries=('is_carry', 'sum'),
         dribble_won=('is_dribble_won', 'sum'),
         dribble_lost=('is_dribble_lost', 'sum'),
@@ -232,6 +229,8 @@ def calculate_player_stats(events_df, player_stats_df=None):
             stats['unsuccessful_passes_p90'] = (stats['unsuccessful_passes'] / mins) * 90
             stats['pass_accuracy'] = (stats['successful_passes'] / (stats['successful_passes'] + stats['unsuccessful_passes'])) * 100
             stats['pass_accuracy'] = stats['pass_accuracy'].round(2)
+            stats['forward_pass_accuracy'] = (stats['successful_forward_passes'] / (stats['successful_forward_passes'] + stats['unsuccessful_forward_passes'])) * 100
+            stats['forward_pass_accuracy'] = stats['forward_pass_accuracy'].round(2)
             stats['carries_p90'] = (stats['carries'] / mins) * 90
             stats['dribble_won_p90'] = (stats['dribble_won'] / mins) * 90
             stats['dribble_lost_p90'] = (stats['dribble_lost'] / mins) * 90
