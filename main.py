@@ -49,8 +49,15 @@ except Exception as e:
     df_comps = pd.DataFrame()
 
 if df_comps is not None and not df_comps.empty:
-    # Get unique competition names
-    comp_names = df_comps['competition_name'].unique().tolist()
+    if 'country_name' in df_comps.columns:
+        df_comps['competition_display'] = df_comps.apply(
+            lambda r: f"{r['competition_name']} ({r['country_name']})" if pd.notna(r.get('country_name')) and r.get('country_name') else str(r['competition_name']),
+            axis=1
+        )
+    else:
+        df_comps['competition_display'] = df_comps['competition_name']
+        
+    comp_labels = sorted(df_comps['competition_display'].unique().tolist())
     
     if page == "Pitch Visualization":
         st.title("🎯 Team Events Pitch Visualization")
@@ -62,19 +69,20 @@ if df_comps is not None and not df_comps.empty:
         # Select single comp/season
         col1, col2 = st.columns(2)
         with col1:
-            viz3_comp = st.selectbox("Select Competition", comp_names, key='viz3_comp')
+            viz3_comp_display = st.selectbox("Select Competition", comp_labels, key='viz3_comp')
             
-        viz3_comp_filtered = df_comps[df_comps['competition_name'] == viz3_comp]
+        viz3_comp_filtered = df_comps[df_comps['competition_display'] == viz3_comp_display]
         viz3_season_names = viz3_comp_filtered['season_name'].unique().tolist()
         
         with col2:
             viz3_season = st.selectbox("Select Season", viz3_season_names, key='viz3_season')
             
-        viz3_row = df_comps[(df_comps['competition_name'] == viz3_comp) & (df_comps['season_name'] == viz3_season)]
+        viz3_row = df_comps[(df_comps['competition_display'] == viz3_comp_display) & (df_comps['season_name'] == viz3_season)]
         
         if not viz3_row.empty:
             comp_id = viz3_row.iloc[0]['competition_id']
             season_id = viz3_row.iloc[0]['season_id']
+            viz3_comp_name_only = viz3_row.iloc[0]['competition_name']
             
             with st.spinner("Loading teams for this competition..."):
                 matches_df = load_matches(comp_id, season_id)
@@ -126,29 +134,30 @@ if df_comps is not None and not df_comps.empty:
                 if selected_known_name:
                     selected_player = player_mapping[selected_known_name]
                     st.write(f"{selected_known_name}: Under Pressure Actions")
-                    visualize_passes_carries_pitch_only(viz3_events, selected_player, selected_known_name, selected_team, viz3_comp, viz3_season)
+                    visualize_passes_carries_pitch_only(viz3_events, selected_player, selected_known_name, selected_team, viz3_comp_name_only, viz3_season)
 
     elif page == "Scatter Visualization":
         st.title("📈 Scatter Visualization")
         
         col1, col2 = st.columns(2)
         with col1:
-            scatter_comp = st.selectbox("Select Competition", comp_names, key='scatter_comp')
+            scatter_comp_display = st.selectbox("Select Competition", comp_labels, key='scatter_comp')
             
-        scatter_comp_filtered = df_comps[df_comps['competition_name'] == scatter_comp]
+        scatter_comp_filtered = df_comps[df_comps['competition_display'] == scatter_comp_display]
         scatter_season_names = scatter_comp_filtered['season_name'].unique().tolist()
         
         with col2:
             scatter_season = st.selectbox("Select Season", scatter_season_names, key='scatter_season')
             
-        scatter_row = df_comps[(df_comps['competition_name'] == scatter_comp) & (df_comps['season_name'] == scatter_season)]
+        scatter_row = df_comps[(df_comps['competition_display'] == scatter_comp_display) & (df_comps['season_name'] == scatter_season)]
+        scatter_comp_name_only = scatter_row.iloc[0]['competition_name'] if not scatter_row.empty else scatter_comp_display.split(' (')[0]
         
         if not scatter_row.empty:
             comp_id = scatter_row.iloc[0]['competition_id']
             season_id = scatter_row.iloc[0]['season_id']
             
             if st.button("Load Data"):
-                with st.spinner(f"Fetching complete match events for all teams in {scatter_comp}..."):
+                with st.spinner(f"Fetching complete match events for all teams in {scatter_comp_display}..."):
                     comp_events = load_competition_events_from_api(comp_id, season_id)
                     
                     if comp_events is not None and not comp_events.empty:
@@ -335,7 +344,7 @@ if df_comps is not None and not df_comps.empty:
 
                 fig.text(0.45, 1, 'What Players do Under Pressure?', ha='center', va='center', fontproperties=fm.FontProperties(fname=boldonse_path, size=20))
                 positions_label = '/'.join(selected_groups)
-                fig.text(0.45, 0.95, f'{scatter_comp} {positions_label}s with {selected_mins}+ minutes played in {scatter_season} season | Data: Statsbomb | made by: @adnaaan433', ha='center', va='center', fontsize=15)
+                fig.text(0.45, 0.95, f'{scatter_comp_name_only} {positions_label}s with {selected_mins}+ minutes played in {scatter_season} season | Data: Statsbomb | made by: @adnaaan433', ha='center', va='center', fontsize=15)
                 fig.text(0.45, 0.92, 'Escape Pressure: Player tries to escape the pressure with Take-On or Carry the ball out', ha='center', va='center', fontsize=15)
                 
                 st.pyplot(fig)
@@ -458,9 +467,9 @@ if df_comps is not None and not df_comps.empty:
                 fig2.text(0.45, 1, f'Efficiency Under Pressure', ha='center', va='center', fontproperties=fm.FontProperties(fname=boldonse_path, size=20))
                 pos_label = '/'.join(selected_groups) if 'selected_groups' in locals() else 'Player'
                 if 'total_events_under_pressure' in df_stats_base.columns:
-                    fig2.text(0.45, 0.95, f'{scatter_comp} {pos_label}s with {selected_events}+ events under pressure in {scatter_season} season | Data: Statsbomb | made by: @adnaaan433', ha='center', va='center', fontsize=15)
+                    fig2.text(0.45, 0.95, f'{scatter_comp_name_only} {pos_label}s with {selected_events}+ events under pressure in {scatter_season} season | Data: Statsbomb | made by: @adnaaan433', ha='center', va='center', fontsize=15)
                 else:
-                    fig2.text(0.45, 0.95, f'{scatter_comp} {pos_label}s in {scatter_season} season | Data: Statsbomb | made by: @adnaaan433', ha='center', va='center', fontsize=15)
+                    fig2.text(0.45, 0.95, f'{scatter_comp_name_only} {pos_label}s in {scatter_season} season | Data: Statsbomb | made by: @adnaaan433', ha='center', va='center', fontsize=15)
                 
                 st.pyplot(fig2)
             else:
